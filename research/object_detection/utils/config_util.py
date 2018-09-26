@@ -46,6 +46,8 @@ def get_image_resizer_config(model_config):
     return model_config.faster_rcnn.image_resizer
   if meta_architecture == "ssd":
     return model_config.ssd.image_resizer
+  if meta_architecture == "ava":
+    return model_config.ava.image_resizer
 
   raise ValueError("Unknown model type: {}".format(meta_architecture))
 
@@ -250,6 +252,8 @@ def get_number_of_classes(model_config):
     return model_config.faster_rcnn.num_classes
   if meta_architecture == "ssd":
     return model_config.ssd.num_classes
+  if meta_architecture == "ava":
+    return model_config.ava.num_classes
 
   raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
 

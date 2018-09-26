@@ -177,6 +177,7 @@ class TargetAssigner(object):
         [unmatched_shape_assert, labels_and_box_shapes_assert]):
       match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
                                                            anchors)
+      #match_quality_matrix = tf.Print(match_quality_matrix, [tf.shape(anchors.get())], 'target assign')
       match = self._matcher.match(match_quality_matrix, **params)
       reg_targets = self._create_regression_targets(anchors,
                                                     groundtruth_boxes,

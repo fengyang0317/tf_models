@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package object_detection.protos;
 
+import "object_detection/protos/ava.proto";
 import "object_detection/protos/faster_rcnn.proto";
 import "object_detection/protos/ssd.proto";
 
@@ -10,5 +11,6 @@ message DetectionModel {
   oneof model {
     FasterRcnn faster_rcnn = 1;
     Ssd ssd = 2;
+    Ava ava = 3;
   }
 }
