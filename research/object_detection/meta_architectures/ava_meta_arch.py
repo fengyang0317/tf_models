@@ -941,7 +941,8 @@ class AvaMetaArch(model.DetectionModel):
         self._first_stage_box_predictor_depth,
         kernel_size=[kernel_size, kernel_size],
         rate=self._first_stage_atrous_rate,
-        activation_fn=tf.nn.relu6)
+        activation_fn=tf.nn.relu6,
+        scope='rpn_box_predictor_features')
     return (rpn_box_predictor_features, rpn_features_to_crop,
             anchors, image_shape)
 
