@@ -710,7 +710,8 @@ class AvaMetaArch(model.DetectionModel):
 
     query_proposal_feat = []
     for qf, qb in zip(query_feat, query_box):
-      qb = tf.expand_dims(qb, axis=1)
+      qb = qb[None, None, :]
+      qb = tf.tile(qb, [tf.shape(qf)[0], 1, 1])
       query_proposal_feat.append(
         self._compute_second_stage_input_feature_maps(qf, qb))
 
