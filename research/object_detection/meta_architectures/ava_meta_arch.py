@@ -581,7 +581,7 @@ class AvaMetaArch(model.DetectionModel):
 
     # The Faster R-CNN paper recommends pruning anchors that venture outside
     # the image window at training time and clipping at inference time.
-    clip_window = tf.to_float(tf.stack([0, 0, image_shape[2], image_shape[3]]))
+    clip_window = tf.to_float(tf.stack([0, 0, image_shape[1], image_shape[2]]))
     if self._is_training:
       if self.clip_anchors_to_image:
         anchors_boxlist = box_list_ops.clip_to_window(
@@ -928,6 +928,7 @@ class AvaMetaArch(model.DetectionModel):
       image_shape: A 1-D tensor representing the input image shape.
     """
     image_shape = tf.shape(preprocessed_inputs)
+    image_shape = tf.gather(image_shape, [0, 2, 3, 4])
     rpn_features_to_crop, _ = self._feature_extractor.extract_proposal_features(
       preprocessed_inputs, scope=self.first_stage_feature_extractor_scope)
 
