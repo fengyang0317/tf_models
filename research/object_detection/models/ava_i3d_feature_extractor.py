@@ -158,12 +158,7 @@ class AvaI3dFeatureExtractor(ava_meta_arch.AvaFeatureExtractor):
     #   ['image size must at least be 33 in both height and width.'])
     shape_assert = tf.no_op()
 
-    def reshape(x):
-      shape = combined_static_and_dynamic_shape(x)
-      x = tf.reshape(x, [-1, 1, 8] + shape[1:])
-      return x
-
-    preprocessed_inputs = [reshape(i) for i in preprocessed_inputs]
+    preprocessed_inputs = tf.reshape(preprocessed_inputs, [-1, 8, 320, 320, 3])
 
     with tf.control_dependencies([shape_assert]):
       # Disables batchnorm for fine-tuning with smaller batch sizes.
@@ -173,22 +168,15 @@ class AvaI3dFeatureExtractor(ava_meta_arch.AvaFeatureExtractor):
           self._architecture, reuse=True) as var_scope:
         rgb_model = i3d.InceptionI3d(2, spatial_squeeze=True,
                                      final_endpoint='Mixed_4c')
-
-        def body(x):
-          _, activations = rgb_model(x,
-                                     is_training=self._train_batch_norm,
-                                     dropout_keep_prob=1.0)
-          handle = 'Mixed_4c'
-          feat = activations[handle]
-          feat = tf.transpose(feat, [0, 2, 3, 1, 4])
-          shape = combined_static_and_dynamic_shape(feat)
-          feat = tf.reshape(feat, shape[:3] + [shape[3] * shape[4]])
-          return feat[0]
-
-        ret = [
-          tf.map_fn(body, i, tf.float32, parallel_iterations=1, back_prop=False)
-          for i in preprocessed_inputs]
-    return ret
+        _, activations = rgb_model(preprocessed_inputs,
+                                   is_training=self._train_batch_norm,
+                                   dropout_keep_prob=1.0)
+    handle = 'Mixed_4c'
+    feat = activations[handle]
+    feat = tf.transpose(feat, [0, 2, 3, 1, 4])
+    shape = combined_static_and_dynamic_shape(feat)
+    feat = tf.reshape(feat, shape[:3] + [shape[3] * shape[4]])
+    return feat
 
   def _extract_box_classifier_features(self, proposal_feature_maps, scope):
     """Extracts second stage box classifier features.

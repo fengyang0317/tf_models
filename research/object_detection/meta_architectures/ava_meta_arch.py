@@ -494,7 +494,7 @@ class AvaMetaArch(model.DetectionModel):
                                         clip_heights, clip_widths], axis=1))
     return clip_window
 
-  def predict(self, features, labels):
+  def predict(self, features):
     """Predicts unpostprocessed tensors from input tensor.
 
     This function takes an input batch of images and runs it through the
@@ -575,7 +575,16 @@ class AvaMetaArch(model.DetectionModel):
     #rpn_box_predictor_features = tf.Print(rpn_box_predictor_features, [tf.shape(features['ref'])[2:], tf.shape(anchors_boxlist.get())], 'anchors')
 
     query_feat = self._feature_extractor.extract_query_features(
-      labels['query'], scope=self.first_stage_feature_extractor_scope)
+      features['query'], scope=self.first_stage_feature_extractor_scope)
+    max_len = tf.reduce_max(features['query_sec'])
+    mask = tf.sequence_mask(features['query_sec'] * 3, max_len * 3)
+    batch_size = features['query_sec']._shape_as_list()[0]
+    rang = tf.range(0, batch_size)
+    rang = tf.tile(rang[:, None], [1, max_len * 3])
+    rang = tf.boolean_mask(rang, mask)
+    query_feat = tf.dynamic_partition(query_feat, rang, batch_size)
+    features['query_box'] = tf.dynamic_partition(features['query_box'], rang, batch_size)
+
     (rpn_box_encodings, rpn_objectness_predictions_with_background
      ) = self._predict_rpn_proposals(rpn_box_predictor_features)
 
@@ -613,7 +622,7 @@ class AvaMetaArch(model.DetectionModel):
         rpn_objectness_predictions_with_background,
         rpn_features_to_crop,
         self._anchors.get(), image_shape, true_image_shapes,
-        query_feat, labels['query_box']))
+        query_feat, features['query_box']))
 
     if self._number_of_stages == 3:
       prediction_dict = self._predict_third_stage(
@@ -710,8 +719,7 @@ class AvaMetaArch(model.DetectionModel):
 
     query_proposal_feat = []
     for qf, qb in zip(query_feat, query_box):
-      qb = qb[None, None, :]
-      qb = tf.tile(qb, [tf.shape(qf)[0], 1, 1])
+      qb = qb[:, None, :]
       query_proposal_feat.append(
         self._compute_second_stage_input_feature_maps(qf, qb))
 
