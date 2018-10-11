@@ -576,14 +576,8 @@ class AvaMetaArch(model.DetectionModel):
 
     query_feat = self._feature_extractor.extract_query_features(
       features['query'], scope=self.first_stage_feature_extractor_scope)
-    max_len = tf.reduce_max(features['query_sec'])
-    mask = tf.sequence_mask(features['query_sec'] * 3, max_len * 3)
-    batch_size = features['query_sec']._shape_as_list()[0]
-    rang = tf.range(0, batch_size)
-    rang = tf.tile(rang[:, None], [1, max_len * 3])
-    rang = tf.boolean_mask(rang, mask)
-    query_feat = tf.dynamic_partition(query_feat, rang, batch_size)
-    features['query_box'] = tf.dynamic_partition(features['query_box'], rang, batch_size)
+    query_feat = [query_feat]
+    features['query_box'] = [features['query_box']]
 
     (rpn_box_encodings, rpn_objectness_predictions_with_background
      ) = self._predict_rpn_proposals(rpn_box_predictor_features)
@@ -1609,7 +1603,7 @@ class AvaMetaArch(model.DetectionModel):
                       tf.stack([combined_shape[0], combined_shape[1],
                                 num_classes, 4]))
 
-  def loss(self, prediction_dict, true_image_shapes, scope=None):
+  def loss(self, prediction_dict, true_image_shapes, ref_sec, scope=None):
     """Compute scalar loss tensors given prediction tensors.
 
     If number_of_stages=1, only RPN related losses are computed (i.e.,
@@ -1645,7 +1639,7 @@ class AvaMetaArch(model.DetectionModel):
         prediction_dict['rpn_box_encodings'],
         prediction_dict['rpn_objectness_predictions_with_background'],
         prediction_dict['anchors'], groundtruth_boxlists,
-        groundtruth_classes_with_background_list, groundtruth_weights_list)
+        groundtruth_classes_with_background_list, groundtruth_weights_list, ref_sec)
       if self._number_of_stages > 1:
         loss_dict.update(
           self._loss_box_classifier(
@@ -1659,13 +1653,14 @@ class AvaMetaArch(model.DetectionModel):
             prediction_dict['image_shape'],
             prediction_dict.get('mask_predictions'),
             groundtruth_masks_list,
+            ref_sec,
           ))
     return loss_dict
 
   def _loss_rpn(self, rpn_box_encodings,
                 rpn_objectness_predictions_with_background, anchors,
                 groundtruth_boxlists, groundtruth_classes_with_background_list,
-                groundtruth_weights_list):
+                groundtruth_weights_list, ref_sec):
     """Computes scalar RPN loss tensors.
 
     Uses self._proposal_target_assigner to obtain regression and classification
@@ -1731,10 +1726,12 @@ class AvaMetaArch(model.DetectionModel):
       objectness_losses = self._first_stage_objectness_loss(
         rpn_objectness_predictions_with_background,
         batch_one_hot_targets, weights=batch_sampled_indices)
-      localization_loss = tf.reduce_mean(
-        tf.reduce_sum(localization_losses, axis=1) / normalizer)
-      objectness_loss = tf.reduce_mean(
-        tf.reduce_sum(objectness_losses, axis=1) / normalizer)
+      localization_loss = tf.reduce_sum(localization_losses, axis=1)/ normalizer
+      localization_loss = localization_loss[:ref_sec*3]
+      localization_loss = tf.reduce_mean(localization_loss)
+      objectness_loss = tf.reduce_sum(objectness_losses, axis=1) / normalizer
+      objectness_loss = objectness_loss[:ref_sec*3]
+      objectness_loss = tf.reduce_mean(objectness_loss)
 
       localization_loss = tf.multiply(self._first_stage_loc_loss_weight,
                                       localization_loss,
@@ -1755,7 +1752,8 @@ class AvaMetaArch(model.DetectionModel):
                            groundtruth_weights_list,
                            image_shape,
                            prediction_masks=None,
-                           groundtruth_masks_list=None):
+                           groundtruth_masks_list=None,
+                           ref_sec=2):
     """Computes scalar box classifier loss tensors.
 
     Uses self._detector_target_assigner to obtain regression and classification
@@ -1876,6 +1874,9 @@ class AvaMetaArch(model.DetectionModel):
           weights=batch_cls_weights),
         ndims=2) / normalizer
 
+      paddings_indicator = paddings_indicator[:ref_sec*3]
+      second_stage_cls_losses = second_stage_cls_losses[:ref_sec*3]
+      second_stage_cls_losses = second_stage_cls_losses[:ref_sec*3]
       second_stage_loc_loss = tf.reduce_sum(
         tf.boolean_mask(second_stage_loc_losses, paddings_indicator))
       second_stage_cls_loss = tf.reduce_sum(
