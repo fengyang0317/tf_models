@@ -16,6 +16,7 @@ from object_detection.utils import ops
 from object_detection.utils import shape_utils
 
 import tensorflow.contrib.slim as slim
+from conv_lstm_cell import ConvLSTMCell
 
 
 class AvaFeatureExtractor(object):
@@ -935,7 +936,7 @@ class AvaMetaArch(model.DetectionModel):
       preprocessed_inputs, scope=self.first_stage_feature_extractor_scope)
 
     rpn_features_to_crop = tf.expand_dims(rpn_features_to_crop, axis=0)
-    cell = tf.contrib.rnn.ConvLSTMCell(2, [20, 20, 1024], 1024, [3, 3])
+    cell = ConvLSTMCell(2, [20, 20, 1024], 1024, [3, 3])
     output, state = tf.nn.static_rnn(cell, tf.unstack(rpn_features_to_crop, axis=1), dtype=tf.float32)
     rpn_features_to_crop = tf.concat(output, axis=0)
 
