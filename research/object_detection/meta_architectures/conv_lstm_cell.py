@@ -79,8 +79,9 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
   def call(self, inputs, state, scope=None):
     cell, hidden = state
     inputs = tf.concat([inputs, hidden], axis=-1)
-    new_hidden = slim.separable_conv2d(
-      inputs, 4 * self._output_channels, self._kernel_shape, activation_fn=None)
+    new_hidden = slim.separable_conv2d(inputs, 4 * self._output_channels,
+                                       self._kernel_shape, depth_multiplier=1,
+                                       activation_fn=None)
     gates = array_ops.split(
       value=new_hidden, num_or_size_splits=4, axis=self._conv_ndims + 1)
 
