@@ -937,8 +937,8 @@ class AvaMetaArch(model.DetectionModel):
 
     rpn_features_to_crop = tf.expand_dims(rpn_features_to_crop, axis=0)
     cell = ConvLSTMCell(2, [20, 20, 1024], 1024, [3, 3])
-    output, state = tf.nn.static_rnn(cell, tf.unstack(rpn_features_to_crop, axis=1), dtype=tf.float32)
-    rpn_features_to_crop = tf.concat(output, axis=0)
+    output, state = tf.nn.dynamic_rnn(cell, rpn_features_to_crop, dtype=tf.float32)
+    rpn_features_to_crop = tf.squeeze(output, axis=0)
 
     feature_map_shape = tf.shape(rpn_features_to_crop)
     anchors = box_list_ops.concatenate(
