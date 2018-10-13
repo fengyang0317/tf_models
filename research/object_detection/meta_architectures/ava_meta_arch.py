@@ -577,8 +577,8 @@ class AvaMetaArch(model.DetectionModel):
 
     query_feat = self._feature_extractor.extract_query_features(
       features['query'], scope=self.first_stage_feature_extractor_scope)
-    query_feat = [query_feat]
-    features['query_box'] = [features['query_box']]
+    batch_size = features['hash']._shape_as_list()[0]
+    query_feat = tf.dynamic_partition(query_feat, features['query_idx'], batch_size)
 
     (rpn_box_encodings, rpn_objectness_predictions_with_background
      ) = self._predict_rpn_proposals(rpn_box_predictor_features)
@@ -1732,11 +1732,14 @@ class AvaMetaArch(model.DetectionModel):
       objectness_losses = self._first_stage_objectness_loss(
         rpn_objectness_predictions_with_background,
         batch_one_hot_targets, weights=batch_sampled_indices)
-      localization_loss = tf.reduce_sum(localization_losses, axis=1)/ normalizer
-      localization_loss = localization_loss[:ref_sec*3]
+      localization_loss = tf.reduce_sum(localization_losses, axis=1) / normalizer
+      batch_size = ref_sec._shape_as_list()[0]
+      mask = tf.sequence_mask(ref_sec * 3, localization_loss._shape_as_list()[0] / batch_size)
+      mask = tf.reshape(mask, [-1])
+      localization_loss = tf.boolean_mask(localization_loss, mask)
       localization_loss = tf.reduce_mean(localization_loss)
       objectness_loss = tf.reduce_sum(objectness_losses, axis=1) / normalizer
-      objectness_loss = objectness_loss[:ref_sec*3]
+      objectness_loss = tf.boolean_mask(objectness_loss, mask)
       objectness_loss = tf.reduce_mean(objectness_loss)
 
       localization_loss = tf.multiply(self._first_stage_loc_loss_weight,
@@ -1880,9 +1883,12 @@ class AvaMetaArch(model.DetectionModel):
           weights=batch_cls_weights),
         ndims=2) / normalizer
 
-      paddings_indicator = paddings_indicator[:ref_sec*3]
-      second_stage_loc_losses = second_stage_loc_losses[:ref_sec*3]
-      second_stage_cls_losses = second_stage_cls_losses[:ref_sec*3]
+      batch_size = ref_sec._shape_as_list()[0]
+      mask = tf.sequence_mask(ref_sec * 3, paddings_indicator._shape_as_list()[0] / batch_size)
+      mask = tf.reshape(mask, [-1])
+      paddings_indicator = tf.boolean_mask(paddings_indicator, mask)
+      second_stage_loc_losses = tf.boolean_mask(second_stage_loc_losses, mask)
+      second_stage_cls_losses = tf.boolean_mask(second_stage_cls_losses, mask)
       second_stage_loc_loss = tf.reduce_sum(
         tf.boolean_mask(second_stage_loc_losses, paddings_indicator))
       second_stage_cls_loss = tf.reduce_sum(
