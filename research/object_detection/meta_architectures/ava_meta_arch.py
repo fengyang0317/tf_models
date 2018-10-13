@@ -1881,7 +1881,7 @@ class AvaMetaArch(model.DetectionModel):
         ndims=2) / normalizer
 
       paddings_indicator = paddings_indicator[:ref_sec*3]
-      second_stage_cls_losses = second_stage_cls_losses[:ref_sec*3]
+      second_stage_loc_losses = second_stage_loc_losses[:ref_sec*3]
       second_stage_cls_losses = second_stage_cls_losses[:ref_sec*3]
       second_stage_loc_loss = tf.reduce_sum(
         tf.boolean_mask(second_stage_loc_losses, paddings_indicator))
