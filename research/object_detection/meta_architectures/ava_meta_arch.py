@@ -930,15 +930,19 @@ class AvaMetaArch(model.DetectionModel):
         absolute coordinates.
       image_shape: A 1-D tensor representing the input image shape.
     """
+    input_shape = preprocessed_inputs._shape_as_list()
+    batch_size = input_shape[0]
+    preprocessed_inputs = tf.reshape(preprocessed_inputs, [-1, 8] + input_shape[2:])
     image_shape = tf.shape(preprocessed_inputs)
     image_shape = tf.gather(image_shape, [0, 2, 3, 4])
     rpn_features_to_crop, _ = self._feature_extractor.extract_proposal_features(
       preprocessed_inputs, scope=self.first_stage_feature_extractor_scope)
 
-    rpn_features_to_crop = tf.expand_dims(rpn_features_to_crop, axis=0)
+    shape_list = rpn_features_to_crop._shape_as_list()
+    rpn_features_to_crop = tf.reshape(rpn_features_to_crop, [batch_size, -1] + shape_list[1:])
     cell = ConvLSTMCell(2, [20, 20, 1024], 1024, [3, 3])
     output, state = tf.nn.dynamic_rnn(cell, rpn_features_to_crop, dtype=tf.float32)
-    rpn_features_to_crop = tf.squeeze(output, axis=0)
+    rpn_features_to_crop = tf.reshape(rpn_features_to_crop, shape_list)
 
     feature_map_shape = tf.shape(rpn_features_to_crop)
     anchors = box_list_ops.concatenate(

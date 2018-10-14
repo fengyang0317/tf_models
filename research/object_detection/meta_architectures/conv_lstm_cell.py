@@ -79,9 +79,14 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
   def call(self, inputs, state, scope=None):
     cell, hidden = state
     new_inputs = tf.concat([inputs, hidden], axis=-1)
-    new_hidden = slim.separable_conv2d(new_inputs, 4 * self._output_channels,
-                                       self._kernel_shape, depth_multiplier=1,
-                                       activation_fn=None)
+    shape = new_inputs._shape_as_list()
+    patches = tf.extract_image_patches(new_inputs, [1, 3, 3, 1], [1, 1, 1, 1], [1, 1, 1, 1], 'SAME')
+    depthwise_w = tf.get_variable('depthwise_w', [1, 1, 1, shape[-1] * 9], tf.float32, trainable=True)
+    patches *= depthwise_w
+    patches = tf.reshape(patches, shape[:3] + [3, 3, -1])
+    patches = tf.reduce_sum(patches, axis=[3, 4])
+    new_hidden = slim.fully_connected(patches, 4 * self._output_channels, activation_fn=None)
+
     gates = array_ops.split(
       value=new_hidden, num_or_size_splits=4, axis=self._conv_ndims + 1)
 
