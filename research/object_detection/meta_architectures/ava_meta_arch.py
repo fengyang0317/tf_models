@@ -938,11 +938,15 @@ class AvaMetaArch(model.DetectionModel):
     rpn_features_to_crop, _ = self._feature_extractor.extract_proposal_features(
       preprocessed_inputs, scope=self.first_stage_feature_extractor_scope)
 
-    shape_list = rpn_features_to_crop._shape_as_list()
+    shape_list = shape_utils.combined_static_and_dynamic_shape(rpn_features_to_crop)
     rpn_features_to_crop = tf.reshape(rpn_features_to_crop, [batch_size, -1] + shape_list[1:])
     cell = ConvLSTMCell(2, [20, 20, 1024], 1024, [3, 3])
-    output, state = tf.nn.dynamic_rnn(cell, rpn_features_to_crop, dtype=tf.float32)
-    rpn_features_to_crop = tf.reshape(rpn_features_to_crop, shape_list)
+    if type(shape_list[0]) == int:
+      output, state = tf.nn.static_rnn(cell, tf.unstack(rpn_features_to_crop, axis=1), dtype=tf.float32)
+      output = tf.stack(output, axis=1)
+    else:
+      output, state = tf.nn.dynamic_rnn(cell, rpn_features_to_crop, dtype=tf.float32)
+    rpn_features_to_crop = tf.reshape(output, shape_list)
 
     feature_map_shape = tf.shape(rpn_features_to_crop)
     anchors = box_list_ops.concatenate(
