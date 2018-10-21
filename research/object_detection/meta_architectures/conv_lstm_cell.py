@@ -22,7 +22,7 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
                output_channels,
                kernel_shape,
                use_bias=True,
-               skip_connection=False,
+               skip_connection=True,
                forget_bias=1.0,
                initializers=None,
                name="conv_lstm_cell"):
@@ -88,11 +88,16 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
       value=new_hidden, num_or_size_splits=4, axis=self._conv_ndims + 1)
 
     input_gate, new_input, forget_gate, output_gate = gates
+    input_gate = tf.contrib.layers.layer_norm(input_gate, scope='input')
+    new_input = tf.contrib.layers.layer_norm(new_input, scope='transform')
+    forget_gate = tf.contrib.layers.layer_norm(forget_gate, scope='forget')
+    output_gate = tf.contrib.layers.layer_norm(output_gate, scope='output')
     new_cell = math_ops.sigmoid(forget_gate + self._forget_bias) * cell
     new_cell += math_ops.sigmoid(input_gate) * math_ops.tanh(new_input)
+    new_cell = tf.contrib.layers.layer_norm(new_cell, scope='state')
     output = math_ops.tanh(new_cell) * math_ops.sigmoid(output_gate)
 
     if self._skip_connection:
-      output = array_ops.concat([output, inputs], axis=-1)
+      output = output + inputs
     new_state = rnn_cell_impl.LSTMStateTuple(new_cell, output)
     return output, new_state
