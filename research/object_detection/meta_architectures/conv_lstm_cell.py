@@ -59,8 +59,6 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
     self._skip_connection = skip_connection
 
     self._total_output_channels = output_channels
-    if self._skip_connection:
-      self._total_output_channels += self._input_shape[-1]
 
     state_size = tensor_shape.TensorShape(
       self._input_shape[:-1] + [self._output_channels])
