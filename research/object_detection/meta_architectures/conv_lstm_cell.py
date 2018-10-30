@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.python.framework import tensor_shape
@@ -76,6 +77,40 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
 
   def call(self, inputs, state, scope=None):
     cell, hidden = state
+    new_inputs = tf.concat([inputs, hidden], axis=-1)
+    off = slim.separable_conv2d(new_inputs, 2, [3, 3], depth_multiplier=1,
+                                stride=5, padding='SAME', activation_fn=None)
+    off = off[:, 1:, 1:]
+    batch_size = inputs._shape_as_list()[0]
+    off = tf.reshape(off, [-1, 9, 2])
+    r = np.arange(3,dtype=np.float32) * 5 + 5;
+    cx = np.tile(r, [3]);
+    r.shape = 3, 1
+    cy = np.tile(r, [1, 3])
+    cy.shape = -1
+    control_points = np.stack([cy, cx], axis=1)
+    control_points = np.expand_dims(control_points, axis=0)
+    control_points = tf.tile(control_points, [batch_size, 1, 1])
+    hidden, _ = tf.contrib.image.sparse_image_warp(
+      hidden,
+      control_points,
+      control_points + off,
+      num_boundary_points=4)
+
+    if 'subset' not in tf.flags.FLAGS:
+      grid = np.ones([201, 201], dtype=np.float32)
+      for i in range(0, 201, 50):
+        grid[i, :] = 0
+        grid[:, i] = 0
+      grid = np.expand_dims(grid, axis=0)
+      grid = np.tile(grid, [batch_size, 1, 1])
+      grid, _ = tf.contrib.image.sparse_image_warp(
+        grid[:, :, :, np.newaxis],
+        control_points * 10,
+        (control_points + off) * 10,
+        num_boundary_points=4)
+      tf.summary.image('grid', grid)
+
     new_inputs = tf.concat([inputs, hidden], axis=-1)
     new_hidden = slim.separable_conv2d(new_inputs, 128,
                                        self._kernel_shape, depth_multiplier=1,
