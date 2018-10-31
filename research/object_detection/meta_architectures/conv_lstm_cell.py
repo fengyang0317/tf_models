@@ -96,6 +96,11 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
       control_points,
       control_points + off,
       num_boundary_points=4)
+    cell, _ = tf.contrib.image.sparse_image_warp(
+      cell,
+      control_points,
+      control_points + off,
+      num_boundary_points=4)
 
     if 'subset' not in tf.flags.FLAGS:
       grid = np.ones([201, 201], dtype=np.float32)
