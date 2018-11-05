@@ -78,7 +78,7 @@ class ConvLSTMCell(rnn_cell_impl.RNNCell):
   def call(self, inputs, state, scope=None):
     cell, hidden = state
     new_inputs = tf.concat([inputs, hidden], axis=-1)
-    off = slim.separable_conv2d(new_inputs, 2, [3, 3], depth_multiplier=1,
+    off = slim.separable_conv2d(new_inputs, 2, [1, 1], depth_multiplier=1,
                                 stride=5, padding='SAME', activation_fn=None)
     off = off[:, 1:, 1:]
     batch_size = inputs._shape_as_list()[0]
